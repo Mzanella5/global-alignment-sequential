@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define VETSIZE 8
+int SIZEA, SIZEB, SIZERES;
 
 int Similarity(char first, char second)
 {
@@ -37,9 +37,9 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos)
 
 void PrintMatrix(int **mat)
 {
-    for (int i = 0; i < VETSIZE; i++)
+    for (int i = 0; i < SIZEA; i++)
     {
-        for (int j = 0; j < VETSIZE; j++)
+        for (int j = 0; j < SIZEB; j++)
         {
             if(mat[i][j] >= 0)
                 printf(" %d | ", mat[i][j]);
@@ -51,18 +51,18 @@ void PrintMatrix(int **mat)
     printf("\n");
 }
 
-int** InitializeMatrix()
+int** InitializeMatrix(int sizex, int sizey)
 {
-    int** mat = (int**) calloc(VETSIZE, sizeof(int*));
-    for (int i = 0; i < VETSIZE; i++)
-        mat[i] = (int*) calloc(VETSIZE, sizeof(int));
+    int** mat = (int**) calloc(sizex, sizeof(int*));
+    for (int i = 0; i < sizex; i++)
+        mat[i] = (int*) calloc(sizey, sizeof(int));
     
     return mat;
 }
 
 void FreeMatrix(int** mat)
 {
-    for (int i = 0; i < VETSIZE; i++)
+    for (int i = 0; i < SIZEA; i++)
         free(mat[i]);
     free(mat);
 }
@@ -72,14 +72,18 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     int i,j;
     char *pos = (char*) calloc(1, sizeof(char));
 
-    for (i=1; i < VETSIZE; i++)
+    for (i=1; i < SIZEA; i++)
     {
         mat[i][0] = mat[i-1][0] + Similarity(vetA[i], '-');
+    }
+
+    for (i=1; i < SIZEB; i++)
+    {
         mat[0][i] = mat[0][i-1] + Similarity('-', vetB[i]);
     }
 
-    for (i=1; i < VETSIZE; i++)
-        for(j=1; j < VETSIZE; j++)
+    for (i=1; i < SIZEA; i++)
+        for(j=1; j < SIZEB; j++)
         {
             mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
         }
@@ -88,82 +92,169 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     return;
 }
 
-void MountSequence(int **mat, char *vetA, char *vetB, char *vetResA, char *vetResB)
+void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
 {
     int i,j,k,l;
     char *pos = (char*) calloc(1, sizeof(char));
 
-    for (i=0; i < VETSIZE*2; i++)
+    for (i=0; i < SIZERES; i++)
     {
-        vetResA[i] = ' ';
-        vetResB[i] = ' ';
+        *(*(vetResA) + i) = ' ';
+        *(*(vetResB) + i) = ' ';
     }
 
-    i = VETSIZE-1;
-    j = VETSIZE-1;
+    i = SIZEA-1;
+    j = SIZEB-1;
 
-    k=VETSIZE*2-1;
-    l=VETSIZE*2-1;
+    k=SIZERES;
+    l=SIZERES;
 
     while (i > 0 && j > 0)
     {
+        k--;
+        l--;
         FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
         printf(" %c |", *pos);
 
         if(*pos == 'D')
         {
-            vetResA[k] = vetA[i];
-            vetResB[l] = vetB[j];
+            *(*(vetResA) + k) = vetA[i];
+            *(*(vetResB) + l) = vetB[j];
             i--;
             j--;
         }
         else if(*pos == 'V')
         {
-            vetResA[k] = vetA[i];
-            vetResB[l] = '-';
+            *(*(vetResA) + k)  = vetA[i];
+            *(*(vetResB) + l) = '-';
             i--;
         }
         else
         {
-            vetResA[k] = '-';
-            vetResB[l] = vetB[j];
+            *(*(vetResA) + k)  = '-';
+            *(*(vetResB) + l)= vetB[j];
             j--;
         }
-        k--;
-        l--;
     }
     free(pos);
     printf("\n");
     return;
 }
 
-void PrintVector(char *vet)
+void PrintVector(char *vet, int size)
 {
     int i;
-    for (i=0; i < VETSIZE*2; i++)
+    for (i=0; i < size; i++)
         printf("%c ", vet[i]);
     printf("\n");
 }
 
+void ReadData(char **vetA, char **vetB)
+{
+    FILE* file;
+    char ch;
+    int next = 1, i, j;
+    SIZEA = 1;
+    SIZEB = 1;
+
+    file = fopen("/tmp/test.txt", "r");
+    if(file == NULL)
+    {
+        printf("\nCan't read the file!\n");
+        return;
+    }
+
+    do {
+        ch = fgetc(file);
+        if(ch == '\n')
+        {
+            next = 0;
+        }
+        if(next == 1)
+        {
+            if(ch >= 'A' && ch <= 'Z')
+                SIZEA++;
+        }
+        else
+        {
+            if(ch >= 'A' && ch <= 'Z')
+                SIZEB++;   
+        }
+    
+    } while(ch != EOF);
+
+    printf("%d\n", SIZEA);
+    printf("%d\n", SIZEB);
+
+    *vetA = (char*) calloc(SIZEA, sizeof(char));
+    *vetB = (char*) calloc(SIZEB, sizeof(char));
+
+    fseek( file, 0, SEEK_SET );
+
+    next = 1;
+    i=1;
+    j=1;
+    do {
+        ch = fgetc(file);
+
+        if(ch == '\n')
+            next = 0;
+
+        if(next)
+        {
+            if(ch >= 'A' && ch <= 'Z')
+            {
+                *((*vetA) + i) = ch;
+                i++;
+            }
+        }
+        else
+        {
+            if(ch >= 'A' && ch <= 'Z') 
+            {
+                *((*vetB) + j) = ch;
+                j++;
+            }
+        }
+    } while (ch != EOF);
+    
+    fclose(file);
+    return;
+}
+
 int main()
 {
-    char vetA[VETSIZE] = {'-','A','C','A','A','T','C','C'};
-    char vetB[VETSIZE] = {'-','A','G','C','A','T','G','C'};
+    char *vetA, *vetB;
     int **mat;
-    int i=0,j=0;
-    char vetResA[VETSIZE*2];
-    char vetResB[VETSIZE*2];
+    int i=0,j=0, res;
+    char *vetResA;
+    char *vetResB;
 
     printf("<<<Alinhamentador>>>\n");
+    ReadData(&vetA, &vetB);
+    SIZERES = SIZEA + SIZEB;
 
-    mat = InitializeMatrix();
+    vetResA = (char*) calloc(SIZERES, sizeof(char));
+    vetResB = (char*) calloc(SIZERES, sizeof(char));
+
+    PrintVector(vetA, SIZEA);
+    PrintVector(vetB, SIZEB);
+
+    PrintVector(vetResA, SIZERES);
+    PrintVector(vetResB, SIZERES);
+
+    mat = InitializeMatrix(SIZEA, SIZEB);
     CalculateSimilarity(mat, vetA, vetB);
     PrintMatrix(mat);
-    MountSequence(mat, vetA, vetB, vetResA, vetResB);
+    MountSequence(mat, vetA, vetB, &vetResA, &vetResB);
 
-    PrintVector(vetResA);
-    PrintVector(vetResB);
+    PrintVector(vetResA, SIZERES);
+    PrintVector(vetResB, SIZERES);
 
     FreeMatrix(mat);
+    free(vetA);
+    free(vetB);
+    free(vetResA);
+    free(vetResB);
     return 0;
 }
