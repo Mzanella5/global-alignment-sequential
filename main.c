@@ -3,17 +3,23 @@
 #include <limits.h>
 #include <ctype.h>
 #include <string.h>
+#include "options.h"
 
 #define getName(var)  #var
 int SIZEA, SIZEB, SIZERES;
 int VERBOSE = 0;
+int MATCH = 2;
+int MISMATCH = -1;
+int GAP = -1;
 
 
 int Similarity(char first, char second)
 {
+    if(first == '-' || second == '-')
+        return GAP;
     if(first == second)
-        return 2;
-    return -1;
+        return MATCH;
+    return MISMATCH;
 }
 
 int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos)
@@ -24,9 +30,9 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos)
     if(i-1 >= 0 && j-1 >= 0)
         v1 = mat[i-1][j-1] + Similarity(a, b);
     if(i-1 >= 0)
-        v2 = mat[i-1][j] + Similarity(a, ' ');
+        v2 = mat[i-1][j] + Similarity(a, '-');
     if(j-1 >= 0)
-        v3 = mat[i][j-1] + Similarity(' ', b);
+        v3 = mat[i][j-1] + Similarity('-', b);
 
     result = v2;
     *pos = 'V';
@@ -169,7 +175,7 @@ int ReadFastaData(char **vet, char *path)
 {
     FILE* file;
     char ch;
-    int i = 1, size = 1;
+    int i = 1, size = 1, skipLine = 0;
 
     file = fopen(path, "r");
     if(file == NULL)
@@ -181,10 +187,15 @@ int ReadFastaData(char **vet, char *path)
     do {
         ch = fgetc(file);
 
-        if(ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
-        {
+        if(skipLine == 1 && ch == '\n')
+            skipLine = 0;
+
+        if(ch == '>')
+            skipLine = 1;
+
+        if((ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z') && skipLine == 0)
             size++;
-        }
+        
     
     } while(ch != EOF);
 
@@ -193,11 +204,20 @@ int ReadFastaData(char **vet, char *path)
     *vet = (char*) calloc(size, sizeof(char));
 
     fseek( file, 0, SEEK_SET );
-
+    skipLine = 0;
     do {
         ch = fgetc(file);
 
-        if(ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
+        if(skipLine == 1 && ch == '\n')
+            skipLine = 0;
+
+        if(ch == '>')
+            skipLine = 1;
+
+        if(ch >= 'a' && ch <= 'z')
+            ch -= 32;
+
+        if(ch >= 'A' && ch <= 'Z' && skipLine == 0)
         {
             *((*vet) + i) = ch;
             i++;
@@ -299,12 +319,6 @@ void PrintResults(char *vetA, char *vetB, int size)
         a = vetA[i];
         b = vetB[i];
 
-        if(a >= 'a' && a <= 'z')
-            a -= 32;
-
-        if(b >= 'a' && b <= 'z')
-            b -= 32;
-
         if(a >= 'A' && a <= 'Z' && b >= 'A' && b <= 'Z')
         {
             if(a == b)
@@ -328,28 +342,43 @@ void PrintResults(char *vetA, char *vetB, int size)
     }
 
     printf("======Results======\n");
-    printf("Hits: %d \nMisses: %d \nGaps: %d \n", hits, misses, gaps);
+    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d \n", hits, misses, gaps, size);
 
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[7])
 {
     char *vetA, *vetB;
     int **mat;
     int i=0,j=0, res;
     char *vetResA;
     char *vetResB;
+    int num_options = 0;
 
     if(argv[1] == NULL || argv[2] == NULL)
     {
-        printf("Use: /GlobalSequencial [File Path 1] [File Path 2]\n");
+        printf("\n\nUse: %s [File Path 1] [File Path 2]\n", argv[0]);
+        printf("Options:\n");
+        printf("--match | INT\n");
+        printf("--mismatch | INT\n");
+        printf("--gap | INT\n");
+        printf("-verbose | 1=TRUE 0=FALSE\n\n");
         return 0;
     }
 
-    if(argv[3] != NULL && strcmp("-v", argv[3]) == 0)
-        VERBOSE = 1;
+    Option* options = process_options(argc, argv, &num_options);
 
-    printf("<<<Alinhamentador>>>\n");
+    MATCH = options[0].value;
+    MISMATCH = options[1].value;
+    GAP = options[2].value;
+    VERBOSE = options[3].value;
+
+    if(VERBOSE)
+        for(i=0; i < num_options; i++)
+        {
+            printf("%s = %d\n", options[i].option, options[i].value);
+        }
+
     printf("Reading Files...\n");
     SIZEA = ReadFastaData(&vetA, argv[1]);
     SIZEB = ReadFastaData(&vetB, argv[2]);
