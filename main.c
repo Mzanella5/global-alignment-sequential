@@ -11,12 +11,47 @@ int VERBOSE = 0;
 int MATCH = 2;
 int MISMATCH = -1;
 int GAP = -1;
+int GAP_SEQ = -1;
 
-
-int Similarity(char first, char second)
+typedef struct
 {
-    if(first == '-' || second == '-')
-        return GAP;
+    int value;
+    int x;
+    int y;
+} Point;
+
+Point BIGGER_POINT;
+
+int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
+{
+    if(first == '-')
+    {
+        if(*gap_seq_a)
+        {
+            return GAP_SEQ;
+        }
+        *gap_seq_a = 1;
+        return GAP + GAP_SEQ;
+    }
+    else
+    {
+        *gap_seq_a = 0;
+    }
+
+    if(second == '-')
+    {
+        if(*gap_seq_b)
+        {
+            return GAP_SEQ;
+        }
+        *gap_seq_b = 1;
+        return GAP + GAP_SEQ;
+    }
+    else
+    {
+        *gap_seq_b = 0;
+    }
+
     if(first == second)
         return MATCH;
     return MISMATCH;
@@ -25,14 +60,14 @@ int Similarity(char first, char second)
 int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos)
 {
     int v1=INT_MIN,v2=INT_MIN,v3=INT_MIN;
-    int result = 0;
+    int result = 0, gap_seq_a = 0, gap_seq_b = 0;
 
     if(i-1 >= 0 && j-1 >= 0)
-        v1 = mat[i-1][j-1] + Similarity(a, b);
+        v1 = mat[i-1][j-1] + Similarity(a, b, &gap_seq_a, &gap_seq_b);
     if(i-1 >= 0)
-        v2 = mat[i-1][j] + Similarity(a, '-');
+        v2 = mat[i-1][j] + Similarity(a, '-', &gap_seq_a, &gap_seq_b);
     if(j-1 >= 0)
-        v3 = mat[i][j-1] + Similarity('-', b);
+        v3 = mat[i][j-1] + Similarity('-', b, &gap_seq_a, &gap_seq_b);
 
     result = v2;
     *pos = 'V';
@@ -57,9 +92,9 @@ void PrintMatrix(int **mat)
         for (int j = 0; j < SIZEB; j++)
         {
             if(mat[i][j] >= 0)
-                printf(" %d | ", mat[i][j]);
+                printf("%0*d | ", 3, mat[i][j]);
             else
-                printf("%d | ", mat[i][j]);
+                printf("%0*d | ", 3, mat[i][j]);
         }
         printf("\n");
     }
@@ -84,17 +119,17 @@ void FreeMatrix(int** mat)
 
 void CalculateSimilarity(int **mat, char *vetA, char *vetB)
 {
-    int i,j;
+    int i,j, gap_seq_a = 0, gap_seq_b = 0;
     char *pos = (char*) calloc(1, sizeof(char));
 
     for (i=1; i < SIZEA; i++)
     {
-        mat[i][0] = mat[i-1][0] + Similarity(vetA[i], '-');
+        mat[i][0] = mat[i-1][0] + Similarity(vetA[i], '-', &gap_seq_a, &gap_seq_b);
     }
 
     for (i=1; i < SIZEB; i++)
     {
-        mat[0][i] = mat[0][i-1] + Similarity('-', vetB[i]);
+        mat[0][i] = mat[0][i-1] + Similarity('-', vetB[i], &gap_seq_a, &gap_seq_b);
     }
 
     for (i=1; i < SIZEA; i++)
@@ -362,6 +397,7 @@ int main(int argc, char *argv[7])
         printf("--match | INT\n");
         printf("--mismatch | INT\n");
         printf("--gap | INT\n");
+        printf("--gap_seq | INT\n");
         printf("-verbose | 1=TRUE 0=FALSE\n\n");
         return 0;
     }
@@ -371,7 +407,8 @@ int main(int argc, char *argv[7])
     MATCH = options[0].value;
     MISMATCH = options[1].value;
     GAP = options[2].value;
-    VERBOSE = options[3].value;
+    GAP_SEQ = options[3].value;
+    VERBOSE = options[4].value;
 
     if(VERBOSE)
         for(i=0; i < num_options; i++)

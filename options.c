@@ -18,7 +18,7 @@ int count_chars(char *s, char c) {
 Option* process_options(int argc, char *argv[], int *num_options) {
     int i, j;
     bool verbose = false, know_option = false;
-    *num_options = 4;
+    *num_options = 5;
 
     Option *options = (Option*) malloc(*num_options * sizeof(Option));
 
@@ -31,8 +31,11 @@ Option* process_options(int argc, char *argv[], int *num_options) {
     strcpy(options[2].option, "--gap");
     options[2].value = -1;
 
-    strcpy(options[3].option, "-verbose");
-    options[3].value = 0;
+    strcpy(options[3].option, "--gap_seq");
+    options[3].value = -1;
+
+    strcpy(options[4].option, "-verbose");
+    options[4].value = 0;
 
     for(i = 3; i < argc; i++) {
         know_option = false;
@@ -41,9 +44,11 @@ Option* process_options(int argc, char *argv[], int *num_options) {
                 if(i+1 < argc && count_chars(argv[i], '-') == 2) {
                     options[j].value = atoi(argv[i+1]);
                     i++;
-                } 
-                if(count_chars(argv[i], '-') == 1) {
-                    options[j].value =  1;
+                }
+                else{
+                    if(count_chars(argv[i], '-') == 1) {
+                        options[j].value =  1;
+                    }
                 }
                 know_option = true;
                 break;          
