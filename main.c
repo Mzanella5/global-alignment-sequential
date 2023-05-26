@@ -24,33 +24,42 @@ Point BIGGER_POINT;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
-    if(first == '-')
+    if(gap_seq_a != NULL)
     {
-        if(*gap_seq_a)
+        if(first == '-')
         {
-            return GAP_SEQ;
+            if(*gap_seq_a)
+            {
+                return GAP_SEQ;
+            }
+            *gap_seq_a = *gap_seq_a + 1;
+
+            return GAP + *gap_seq_a * GAP_SEQ;
         }
-        *gap_seq_a = 1;
-        return GAP + GAP_SEQ;
-    }
-    else
-    {
-        *gap_seq_a = 0;
+        else
+        {
+            *gap_seq_a = 0;
+        }
     }
 
-    if(second == '-')
+    if(gap_seq_b != NULL)
     {
-        if(*gap_seq_b)
+        if(second == '-')
         {
-            return GAP_SEQ;
+            if(*gap_seq_b)
+            {
+                return GAP_SEQ;
+            }
+            *gap_seq_b = *gap_seq_b + 1;
+
+            return GAP + *gap_seq_b * GAP_SEQ;
         }
-        *gap_seq_b = 1;
-        return GAP + GAP_SEQ;
+        else
+        {
+            *gap_seq_b = 0;
+        }
     }
-    else
-    {
-        *gap_seq_b = 0;
-    }
+
 
     if(first == second)
         return MATCH;
@@ -63,7 +72,7 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos)
     int result = 0, gap_seq_a = 0, gap_seq_b = 0;
 
     if(i-1 >= 0 && j-1 >= 0)
-        v1 = mat[i-1][j-1] + Similarity(a, b, &gap_seq_a, &gap_seq_b);
+        v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
     if(i-1 >= 0)
         v2 = mat[i-1][j] + Similarity(a, '-', &gap_seq_a, &gap_seq_b);
     if(j-1 >= 0)
@@ -124,12 +133,12 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
 
     for (i=1; i < SIZEA; i++)
     {
-        mat[i][0] = mat[i-1][0] + Similarity(vetA[i], '-', &gap_seq_a, &gap_seq_b);
+        mat[i][0] = mat[i-1][0] + Similarity(vetA[i], '-', NULL, NULL);
     }
 
     for (i=1; i < SIZEB; i++)
     {
-        mat[0][i] = mat[0][i-1] + Similarity('-', vetB[i], &gap_seq_a, &gap_seq_b);
+        mat[0][i] = mat[0][i-1] + Similarity('-', vetB[i], NULL, NULL);
     }
 
     for (i=1; i < SIZEA; i++)
