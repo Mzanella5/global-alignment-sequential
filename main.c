@@ -4,14 +4,16 @@
 #include <ctype.h>
 #include <string.h>
 #include "options.h"
+#include <time.h>
 
 #define getName(var)  #var
-int SIZEA, SIZEB, SIZERES;
+int SIZEA, SIZEB, SIZERES, MATRIX_SIZE;
 int VERBOSE = 0;
 int MATCH = 2;
 int MISMATCH = -1;
 int GAP = -1;
 int GAP_SEQ = -1;
+int NO_AFFINE = 0;
 
 typedef struct
 {
@@ -24,44 +26,50 @@ Point BIGGER_POINT;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
-    // if(first == '-' || second == '-')
-    // {
-    //     return GAP;
-    // }
-
-    if(gap_seq_a != NULL)
+    if(NO_AFFINE == 1)
     {
-        if(first == '-')
+        // Simple gap penalty
+        if(first == '-' || second == '-')
         {
-            if(*gap_seq_a)
-            {
-                return GAP_SEQ;
-            }
-            *gap_seq_a = *gap_seq_a + 1;
-
-            return GAP + *gap_seq_a * GAP_SEQ;
-        }
-        else
-        {
-            *gap_seq_a = 0;
+            return GAP;
         }
     }
-
-    if(gap_seq_b != NULL)
+    else // Aplies affine gap
     {
-        if(second == '-')
+        if(gap_seq_a != NULL)
         {
-            if(*gap_seq_b)
+            if(first == '-')
             {
-                return GAP_SEQ;
-            }
-            *gap_seq_b = *gap_seq_b + 1;
+                if(*gap_seq_a)
+                {
+                    return GAP_SEQ;
+                }
+                *gap_seq_a = *gap_seq_a + 1;
 
-            return GAP + *gap_seq_b * GAP_SEQ;
+                return GAP + *gap_seq_a * GAP_SEQ;
+            }
+            else
+            {
+                *gap_seq_a = 0;
+            }
         }
-        else
+
+        if(gap_seq_b != NULL)
         {
-            *gap_seq_b = 0;
+            if(second == '-')
+            {
+                if(*gap_seq_b)
+                {
+                    return GAP_SEQ;
+                }
+                *gap_seq_b = *gap_seq_b + 1;
+
+                return GAP + *gap_seq_b * GAP_SEQ;
+            }
+            else
+            {
+                *gap_seq_b = 0;
+            }
         }
     }
 
@@ -228,18 +236,18 @@ int PrintVector(char *vet, int size)
     return count;
 }
 
-int ReadFastaData(char **vet, char *path)
+read_data_result ReadFastaData(char **vet, char *path)
 {
     FILE* file;
     char ch;
     int i, size = 1, skipLine = 0;
-    char sequence_name[100];
+    read_data_result result;
 
     file = fopen(path, "r");
     if(file == NULL)
     {
         printf("\nCan't read the file!\n");
-        return size;
+        return result;
     }
 
     for (i=0; i < 99; i++)
@@ -248,14 +256,14 @@ int ReadFastaData(char **vet, char *path)
         if (ch == EOF || ch == '\n')
             break;
         else
-            sequence_name[i] = ch;
+            result.sequence_name[i] = ch;
     }
 
-    sequence_name[i+1] = '\0';
-    if (VERBOSE)
-        printf("%s\n", sequence_name);
+    result.sequence_name[i+1] = '\0';
+    printf("%s\n", result.sequence_name);
 
-    fseek( file, 0, SEEK_SET );
+    fseek(file, 0, SEEK_SET);
+
     do {
         ch = fgetc(file);
 
@@ -264,7 +272,7 @@ int ReadFastaData(char **vet, char *path)
 
         if(ch == '>')
             skipLine = 1;
-        
+
         if((ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z') && skipLine == 0)
             size++;
         
@@ -273,7 +281,7 @@ int ReadFastaData(char **vet, char *path)
 
     *vet = (char*) calloc(size, sizeof(char));
 
-    fseek( file, 0, SEEK_SET );
+    fseek(file, 0, SEEK_SET);
     skipLine = 0;
     i=1;
     do {
@@ -296,7 +304,8 @@ int ReadFastaData(char **vet, char *path)
     } while (ch != EOF);
     
     fclose(file);
-    return size;
+    result.size = size;
+    return result;
 }
 
 void ReadData(char **vetA, char **vetB, char *path)
@@ -381,10 +390,87 @@ void ReadData(char **vetA, char **vetB, char *path)
     return;
 }
 
-void PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **mat)
+int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_time, read_data_result result_a, read_data_result result_b)
+{
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    FILE *file;
+    int lineSize = 60, l=0, seq_poss = 1;
+    char datetime[50], seqA[lineSize+3], seqB[lineSize+3], identities[lineSize+3], a,b;
+
+    sprintf(datetime, "out/%02d%02d%02d%02d%02d%02d.txt",
+            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+            tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+    file = fopen(datetime, "w");
+    if (file == NULL) {
+        printf("\nErro ao criar o arquivo.\n");
+        return 0;
+    }
+
+    fprintf(file, "Reference sequence: %s", result_a.sequence_name);
+    fprintf(file, "Subject sequence: %s", result_b.sequence_name);
+    fprintf(file, "%s", metrics);
+    fprintf(file, "Alignment time: %f seconds\n\n", elapsed_time);
+
+    for (int i=0; i < size; i++)
+    {
+        if (l >= lineSize)
+        {
+            seqA[l] = '\0';
+            seqB[l] = '\0';
+            identities[l] = '\0';
+            fprintf(file, "%d-%d\n", seq_poss-lineSize, seq_poss -1);
+            fprintf(file, "%s\n", seqA);
+            fprintf(file, "%s\n", identities);
+            fprintf(file, "%s\n\n", seqB);
+            l = 0;
+        }
+        if (l < lineSize)
+        {
+            a = vetA[i];
+            b = vetB[i];
+
+            if(a >= 'A' && a <= 'Z' && b >= 'A' && b <= 'Z' || a == '-' || b == '-')
+            {
+                if(a == b)
+                {
+                    identities[l] = '|';
+                }
+                else
+                if(a == '-' || b == '-')
+                {
+                    identities[l] = '&';
+                }
+                else identities[l] = '*';
+
+                seqA[l] = a;
+                seqB[l] = b;
+                l++;
+                seq_poss++;
+            }
+        }
+
+    }
+
+    seqA[l] = '\0';
+    seqB[l] = '\0';
+    identities[l] = '\0';
+    fprintf(file, "%s\n", seqA);
+    fprintf(file, "%s\n", identities);
+    fprintf(file, "%s\n", seqB);    
+
+    fclose(file);
+    return 1;
+}
+
+char* PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **mat)
 {
     int i, hits=0, misses=0, gaps=0;
-    char a, b;
+    char a, b, *ret;
+
+    ret = (char*) calloc(100, sizeof(char));
+
     for(i=0; i < size; i++)
     {
         a = vetA[i];
@@ -409,13 +495,37 @@ void PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **mat
 
         if(b == '-')
             gaps++;
-
     }
 
-    printf("==========Results==========\n");
-    printf("Identities: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size_sequence, mat[SIZEA-1][SIZEB-1]);
-    printf("===========================\n");
+    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d\n", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size_sequence);
 
+    printf("==========Results==========\n");
+    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size_sequence, mat[SIZEA-1][SIZEB-1]);
+    printf("===========================\n");
+    return ret;
+}
+
+void PrintHelp(char* prog_name)
+{
+    printf("\n\nUse: %s [File Path 1] [File Path 2]\n", prog_name);
+    printf("Options:\n");
+    printf("--match | INT\n");
+    printf("--mismatch | INT\n");
+    printf("--gap | INT\n");
+    printf("--gap_seq | INT\n");
+    printf("-help\n");
+    printf("-verbose\n");
+    printf("-no_affine\n\n");
+}
+
+int CountFinalSequence(char *vet, int size)
+{
+    int i, count=0;
+    for (i=0; i < size; i++)
+        if (vet[i] >= 'A' && vet[i] <= 'Z' || vet[i] == '-')
+            count++;
+        
+    return count;
 }
 
 int main(int argc, char *argv[7])
@@ -426,16 +536,13 @@ int main(int argc, char *argv[7])
     char *vetResA;
     char *vetResB;
     int num_options = 0;
+    double elapsed_time;
+    read_data_result result_a;
+    read_data_result result_b;
 
     if(argv[1] == NULL || argv[2] == NULL)
     {
-        printf("\n\nUse: %s [File Path 1] [File Path 2]\n", argv[0]);
-        printf("Options:\n");
-        printf("--match | INT\n");
-        printf("--mismatch | INT\n");
-        printf("--gap | INT\n");
-        printf("--gap_seq | INT\n");
-        printf("--verbose | 1=TRUE 0=FALSE\n\n");
+        PrintHelp(argv[0]);
         return 0;
     }
 
@@ -446,11 +553,23 @@ int main(int argc, char *argv[7])
     GAP = options[2].value;
     GAP_SEQ = options[3].value;
     VERBOSE = options[4].value;
+    NO_AFFINE = options[5].value;
+
+    if(options[6].value)
+    {
+        PrintHelp(argv[0]);
+        return 0;
+    }
 
     printf("<Reading Files>\n");
-    SIZEA = ReadFastaData(&vetA, argv[1]);
-    SIZEB = ReadFastaData(&vetB, argv[2]);
+    printf("Reference Sequence: ");
+    result_a = ReadFastaData(&vetA, argv[1]);
+    printf("Subject Sequence: ");
+    result_b = ReadFastaData(&vetB, argv[2]);
+    SIZEA = result_a.size;
+    SIZEB = result_b.size;
     SIZERES = SIZEA + SIZEB;
+    MATRIX_SIZE = SIZEA * SIZEB;
     printf("Size A: %d Size B: %d\n", SIZEA-1, SIZEB-1);
 
     vetResA = (char*) calloc(SIZERES, sizeof(char));
@@ -475,7 +594,12 @@ int main(int argc, char *argv[7])
     }
 
     printf("<Calculate Results>\n");
-    PrintResults(vetResA, vetResB, SIZERES, alignment_size, mat);
+    alignment_size = CountFinalSequence(vetResA, SIZERES);
+    char *result = PrintResults(vetResA, vetResB, SIZERES, alignment_size, mat);
+
+    printf("<Writing file>\n");
+    WriteFile(vetResA, vetResB, SIZERES, result, elapsed_time, result_a, result_b);
+    printf("<Done>\n");
 
     FreeMatrix(mat);
     free(vetA);

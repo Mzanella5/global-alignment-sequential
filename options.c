@@ -18,7 +18,7 @@ int count_chars(char *s, char c) {
 Option* process_options(int argc, char *argv[], int *num_options) {
     int i, j;
     bool verbose = false, know_option = false;
-    *num_options = 5;
+    *num_options = 7;
 
     Option *options = (Option*) malloc(*num_options * sizeof(Option));
 
@@ -36,6 +36,12 @@ Option* process_options(int argc, char *argv[], int *num_options) {
 
     strcpy(options[4].option, "-verbose");
     options[4].value = 0;
+
+    strcpy(options[5].option, "-no_affine");
+    options[6].value = 0;
+
+    strcpy(options[6].option, "-help");
+    options[7].value = 0;
 
     for(i = 3; i < argc; i++) {
         know_option = false;
