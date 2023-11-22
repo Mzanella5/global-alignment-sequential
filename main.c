@@ -148,12 +148,12 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
 
     for (i=1; i < SIZEA; i++)
     {
-        mat[i][0] = mat[i-1][0] + Similarity(vetA[i], '-', NULL, NULL);
+        mat[i][0] = i * -1;
     }
 
     for (i=1; i < SIZEB; i++)
     {
-        mat[0][i] = mat[0][i-1] + Similarity('-', vetB[i], NULL, NULL);
+        mat[0][i] = i * -1;
     }
 
     for (i=1; i < SIZEA; i++)
@@ -408,9 +408,9 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
         return 0;
     }
 
-    fprintf(file, "Reference sequence: %s", result_a.sequence_name);
-    fprintf(file, "Subject sequence: %s", result_b.sequence_name);
-    fprintf(file, "%s", metrics);
+    fprintf(file, "Reference sequence: %s\n", result_a.sequence_name);
+    fprintf(file, "Subject sequence: %s\n", result_b.sequence_name);
+    fprintf(file, "%s\n", metrics);
     fprintf(file, "Alignment time: %f seconds\n\n", elapsed_time);
 
     for (int i=0; i < size; i++)
@@ -497,7 +497,7 @@ char* PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **ma
             gaps++;
     }
 
-    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d\n", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size_sequence);
+    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size_sequence);
 
     printf("==========Results==========\n");
     printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size_sequence, mat[SIZEA-1][SIZEB-1]);
