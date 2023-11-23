@@ -15,18 +15,11 @@ int GAP = -1;
 int GAP_SEQ = -1;
 int NO_AFFINE = 0;
 
-typedef struct
-{
-    int value;
-    int x;
-    int y;
-} Point;
-
-Point BIGGER_POINT;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
-    if(NO_AFFINE == 1)
+    int gap_seq_cost;
+    if(NO_AFFINE == 1 || gap_seq_a == NULL || gap_seq_b == NULL)
     {
         // Simple gap penalty
         if(first == '-' || second == '-')
@@ -36,43 +29,28 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
     }
     else // Aplies affine gap
     {
-        if(gap_seq_a != NULL)
+        if(first == '-')
         {
-            if(first == '-')
-            {
-                if(*gap_seq_a)
-                {
-                    return GAP_SEQ;
-                }
-                *gap_seq_a = *gap_seq_a + 1;
-
-                return GAP + *gap_seq_a * GAP_SEQ;
-            }
-            else
-            {
-                *gap_seq_a = 0;
-            }
+            *gap_seq_a = *gap_seq_a + 1;
+            gap_seq_cost = *gap_seq_a -1;
+            return GAP + GAP_SEQ * gap_seq_cost;
+        }
+        else
+        {
+            *gap_seq_a = 0;
         }
 
-        if(gap_seq_b != NULL)
+        if(second == '-')
         {
-            if(second == '-')
-            {
-                if(*gap_seq_b)
-                {
-                    return GAP_SEQ;
-                }
-                *gap_seq_b = *gap_seq_b + 1;
-
-                return GAP + *gap_seq_b * GAP_SEQ;
-            }
-            else
-            {
-                *gap_seq_b = 0;
-            }
+            *gap_seq_b = *gap_seq_b + 1;
+            gap_seq_cost = *gap_seq_b -1;
+            return GAP + GAP_SEQ * gap_seq_cost;
+        }
+        else
+        {
+            *gap_seq_b = 0;
         }
     }
-
 
     if(first == second)
         return MATCH;
@@ -80,30 +58,34 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
     return MISMATCH;
 }
 
-int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos)
+int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos, int *gap_seq_a, int *gap_seq_b)
 {
     int v1=INT_MIN,v2=INT_MIN,v3=INT_MIN;
-    int result = 0, gap_seq_a = 0, gap_seq_b = 0;
+    int result = 0;
 
     if(i-1 >= 0 && j-1 >= 0)
-        v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
+        v1 = mat[i-1][j-1] + Similarity(a, b, gap_seq_a, gap_seq_b);
     if(i-1 >= 0)
-        v2 = mat[i-1][j] + Similarity(a, '-', &gap_seq_a, &gap_seq_b);
+        v2 = mat[i-1][j] + Similarity(a, '-', gap_seq_a, gap_seq_b);
     if(j-1 >= 0)
-        v3 = mat[i][j-1] + Similarity('-', b, &gap_seq_a, &gap_seq_b);
+        v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
 
-    result = v2;
-    *pos = 'V';
-    if(v1 > result)
+    result = v1;
+    if(v2 > result)
     {
-        result = v1;
-        *pos = 'D';
+        result = v2;
     }
     if(v3 > result)
     {
         result = v3;
-        *pos = 'H';
     }
+
+    if(mat[i][j] == v1)
+        *pos = 'D';
+    else if(mat[i][j] == v2)
+        *pos = 'V';
+    else if(mat[i][j] == v3)
+        *pos = 'H';
 
     return result;
 }
@@ -159,10 +141,12 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     for (i=1; i < SIZEA; i++)
         for(j=1; j < SIZEB; j++)
         {
-            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
+            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos, &gap_seq_a, &gap_seq_b);
         }
 
-    free(pos);
+    if(mat[SIZEA-1][SIZEB-1] == 0)
+        printf("<<NOT COMPLETED>> %d\n", mat[SIZEA-1][SIZEB-1]);
+
     return;
 }
 
@@ -190,7 +174,7 @@ void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vet
     {
         k--;
         l--;
-        FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
+        FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos, NULL, NULL);
         if(i==0 && j==0) break;
 
         if(VERBOSE)
@@ -583,6 +567,8 @@ int main(int argc, char *argv[7])
         PrintMatrix(mat);
     
     printf("<Mount Sequence>\n");
+
+    SEILA = 1;
     MountSequence(mat, vetA, vetB, &vetResA, &vetResB);
 
     if(VERBOSE)
