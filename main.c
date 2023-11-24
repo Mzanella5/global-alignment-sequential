@@ -14,6 +14,7 @@ int MISMATCH = -1;
 int GAP = -1;
 int GAP_SEQ = -1;
 int NO_AFFINE = 0;
+int SEILA = 0;
 
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
@@ -61,7 +62,7 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos, int *gap_seq_a, int *gap_seq_b)
 {
     int v1=INT_MIN,v2=INT_MIN,v3=INT_MIN;
-    int result = 0;
+    int result = INT_MIN;
 
     if(i-1 >= 0 && j-1 >= 0)
         v1 = mat[i-1][j-1] + Similarity(a, b, gap_seq_a, gap_seq_b);
@@ -70,22 +71,38 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos, int *
     if(j-1 >= 0)
         v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
 
-    result = v1;
+    // if(SEILA == 1)
+    // {
+    //     printf("i:%d j:%d %c-%c\n",i,j,a,b);
+    //     printf("D:%d V:%d H:%d\n", v1,v2,v3);
+    //     char c;
+    //     scanf("%c", &c);
+    // }
+
     if(v2 > result)
-    {
         result = v2;
+    if(v1 > result)
+    {
+        result = v1;
     }
     if(v3 > result)
     {
         result = v3;
     }
+    if(result == INT_MIN)
+        printf("RESULT HAS MINIMUM VALUE");
 
-    if(mat[i][j] == v1)
-        *pos = 'D';
-    else if(mat[i][j] == v2)
+    if(mat[i][j] == v2)
         *pos = 'V';
+    else if(mat[i][j] == v1)
+        *pos = 'D';
     else if(mat[i][j] == v3)
         *pos = 'H';
+    else if(SEILA == 1)
+        printf("mat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
+
+    // if(SEILA == 1)
+    //     printf("%c\n", *pos);
 
     return result;
 }
@@ -130,12 +147,12 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
 
     for (i=1; i < SIZEA; i++)
     {
-        mat[i][0] = i * -1;
+        mat[i][0] = i * GAP;
     }
 
     for (i=1; i < SIZEB; i++)
     {
-        mat[0][i] = i * -1;
+        mat[0][i] = i * GAP;
     }
 
     for (i=1; i < SIZEA; i++)
@@ -189,19 +206,76 @@ void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vet
         }
         else if(*pos == 'V')
         {
-            *(*(vetResA) + k)  = vetA[i];
+            *(*(vetResA) + k) = vetA[i];
             *(*(vetResB) + l) = '-';
             i--;
         }
         else
         {
-            *(*(vetResA) + k)  = '-';
+            *(*(vetResA) + k) = '-';
             *(*(vetResB) + l)= vetB[j];
             j--;
         }
     } while (i >= 0 && j >= 0);
 
     free(pos);
+    if(VERBOSE)
+        printf("\n");
+    return;
+}
+
+void MountInvertedSequence(int **mat, char *vetA, char *vetB, char *vetResA, char *vetResB)
+{
+    int i,j,k,l;
+    char pos;
+
+    for (i=0; i < SIZERES; i++)
+    {
+        vetResA[i] = '-';
+        vetResB[i] = '-';
+    }
+
+    i = 1;
+    j = 1;
+    k = 1;
+    l = 1;
+
+    if(VERBOSE)
+        printf("Matrix back path: ");
+
+    while (i < SIZEA && j < SIZEB)
+    {
+        FunctionSimilarity(mat, vetA[i], vetB[j], i, j, &pos, NULL, NULL);
+
+        if(VERBOSE)
+            printf(" %c |", pos);
+
+        if(pos == 'D')
+        {
+            vetResA[k] = vetA[i];
+            vetResB[l] = vetB[j];
+            i++;
+            j++;
+        }
+        else if(pos == 'V')
+        {
+            vetResA[k]  = vetA[i];
+            vetResB[l] = '-';
+            i++;
+        }
+        else if(pos == 'H')
+        {
+            vetResA[k] = '-';
+            vetResB[l] = vetB[j];
+            j++;
+        }
+
+        k++;
+        l++;
+    }
+
+    SIZERES = k+l;
+
     if(VERBOSE)
         printf("\n");
     return;
@@ -374,7 +448,7 @@ void ReadData(char **vetA, char **vetB, char *path)
     return;
 }
 
-int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_time, read_data_result result_a, read_data_result result_b)
+int WriteFile(char *vetA, char *vetB, char *metrics, double elapsed_time, read_data_result result_a, read_data_result result_b)
 {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -397,7 +471,7 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
     fprintf(file, "%s\n", metrics);
     fprintf(file, "Alignment time: %f seconds\n\n", elapsed_time);
 
-    for (int i=0; i < size; i++)
+    for (int i=0; i < SIZERES; i++)
     {
         if (l >= lineSize)
         {
@@ -448,14 +522,41 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
     return 1;
 }
 
-char* PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **mat)
+void WriteMatrixFile(int **mat)
+{
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    FILE *file;
+    char datetime[50];
+
+    sprintf(datetime, "out/Matrix_%02d%02d%02d%02d%02d%02d.txt",
+        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+        tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+    file = fopen(datetime, "w");
+    if (file == NULL) {
+        printf("\nErro ao criar o arquivo.\n");
+        return;
+    }
+
+    for (int i=0; i< 300; i++)
+    {
+        for (int j=0; j< 300; j++)
+        {
+            fprintf(file, "%0*d | ", 11, mat[i][j]);
+        }
+        fprintf(file, "\n");
+    }
+}
+
+char* PrintResults(char *vetA, char *vetB, int size_sequence, int **mat)
 {
     int i, hits=0, misses=0, gaps=0;
     char a, b, *ret;
 
     ret = (char*) calloc(100, sizeof(char));
 
-    for(i=0; i < size; i++)
+    for(i=0; i < SIZERES; i++)
     {
         a = vetA[i];
         b = vetB[i];
@@ -481,10 +582,10 @@ char* PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **ma
             gaps++;
     }
 
-    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size_sequence);
+    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, SIZERES);
 
     printf("==========Results==========\n");
-    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size_sequence, mat[SIZEA-1][SIZEB-1]);
+    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, SIZERES, mat[SIZEA-1][SIZEB-1]);
     printf("===========================\n");
     return ret;
 }
@@ -567,9 +668,10 @@ int main(int argc, char *argv[7])
         PrintMatrix(mat);
     
     printf("<Mount Sequence>\n");
-
+    //WriteMatrixFile(mat);
     SEILA = 1;
     MountSequence(mat, vetA, vetB, &vetResA, &vetResB);
+    //MountInvertedSequence(mat, vetA, vetB, vetResA, vetResB);
 
     if(VERBOSE)
     {
@@ -581,10 +683,10 @@ int main(int argc, char *argv[7])
 
     printf("<Calculate Results>\n");
     alignment_size = CountFinalSequence(vetResA, SIZERES);
-    char *result = PrintResults(vetResA, vetResB, SIZERES, alignment_size, mat);
+    char *result = PrintResults(vetResA, vetResB, alignment_size, mat);
 
     printf("<Writing file>\n");
-    WriteFile(vetResA, vetResB, SIZERES, result, elapsed_time, result_a, result_b);
+    WriteFile(vetResA, vetResB, result, elapsed_time, result_a, result_b);
     printf("<Done>\n");
 
     FreeMatrix(mat);
