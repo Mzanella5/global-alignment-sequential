@@ -26,13 +26,13 @@ Option* process_options(int argc, char *argv[], int *num_options) {
     options[0].value = 2;
 
     strcpy(options[1].option, "--mismatch");
-    options[1].value = -1;
+    options[1].value = -3;
 
     strcpy(options[2].option, "--gap");
-    options[2].value = -1;
+    options[2].value = -5;
 
     strcpy(options[3].option, "--gap_seq");
-    options[3].value = -1;
+    options[3].value = -2;
 
     strcpy(options[4].option, "-verbose");
     options[4].value = 0;

@@ -5,6 +5,7 @@
 #include <string.h>
 #include "options.h"
 #include <time.h>
+#include <sys/time.h>
 
 #define getName(var)  #var
 int SIZEA, SIZEB, SIZERES, MATRIX_SIZE;
@@ -19,7 +20,7 @@ int SEILA = 0;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
-    int gap_seq_cost;
+    int gap_seq_count;
     if(NO_AFFINE == 1 || gap_seq_a == NULL || gap_seq_b == NULL)
     {
         // Simple gap penalty
@@ -33,8 +34,8 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
         if(first == '-')
         {
             *gap_seq_a = *gap_seq_a + 1;
-            gap_seq_cost = *gap_seq_a -1;
-            return GAP + GAP_SEQ * gap_seq_cost;
+            gap_seq_count = *gap_seq_a -1;
+            return GAP + GAP_SEQ * gap_seq_count;
         }
         else
         {
@@ -44,8 +45,8 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
         if(second == '-')
         {
             *gap_seq_b = *gap_seq_b + 1;
-            gap_seq_cost = *gap_seq_b -1;
-            return GAP + GAP_SEQ * gap_seq_cost;
+            gap_seq_count = *gap_seq_b -1;
+            return GAP + GAP_SEQ * gap_seq_count;
         }
         else
         {
@@ -78,28 +79,33 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos, int *
     //     char c;
     //     scanf("%c", &c);
     // }
-
     if(v2 > result)
-        result = v2;
-    if(v1 > result)
     {
-        result = v1;
+        result = v2;
+        *pos = 'V';
     }
     if(v3 > result)
     {
         result = v3;
-    }
-    if(result == INT_MIN)
-        printf("RESULT HAS MINIMUM VALUE");
-
-    if(mat[i][j] == v2)
-        *pos = 'V';
-    else if(mat[i][j] == v1)
-        *pos = 'D';
-    else if(mat[i][j] == v3)
         *pos = 'H';
-    else if(SEILA == 1)
-        printf("mat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
+    }
+    if(v1 > result)
+    {
+        result = v1;
+        *pos = 'D';
+    }
+
+    if(result == INT_MIN)
+        printf("\nmat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
+
+    // if(mat[i][j] == v2)
+    //     *pos = 'V';
+    // else if(mat[i][j] == v1)
+    //     *pos = 'D';
+    // else if(mat[i][j] == v3)
+    //     *pos = 'H';
+    // else if(SEILA == 1)
+    //     printf("mat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
 
     // if(SEILA == 1)
     //     printf("%c\n", *pos);
@@ -140,11 +146,14 @@ void FreeMatrix(int** mat)
     free(mat);
 }
 
-void CalculateSimilarity(int **mat, char *vetA, char *vetB)
+double CalculateSimilarity(int **mat, char *vetA, char *vetB)
 {
+    struct timeval start_time, end_time;
+    double elapsed_time;
     int i,j, gap_seq_a = 0, gap_seq_b = 0;
     char *pos = (char*) calloc(1, sizeof(char));
 
+    gettimeofday(&start_time, NULL);
     for (i=1; i < SIZEA; i++)
     {
         mat[i][0] = i * GAP;
@@ -164,7 +173,11 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     if(mat[SIZEA-1][SIZEB-1] == 0)
         printf("<<NOT COMPLETED>> %d\n", mat[SIZEA-1][SIZEB-1]);
 
-    return;
+    gettimeofday(&end_time, NULL);
+    elapsed_time = (end_time.tv_sec - start_time.tv_sec) +
+                   (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+
+    return elapsed_time;
 }
 
 void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
@@ -210,7 +223,7 @@ void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vet
             *(*(vetResB) + l) = '-';
             i--;
         }
-        else
+        else if(*pos == 'H')
         {
             *(*(vetResA) + k) = '-';
             *(*(vetResB) + l)= vetB[j];
@@ -582,10 +595,10 @@ char* PrintResults(char *vetA, char *vetB, int size_sequence, int **mat)
             gaps++;
     }
 
-    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, SIZERES);
+    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size_sequence);
 
     printf("==========Results==========\n");
-    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, SIZERES, mat[SIZEA-1][SIZEB-1]);
+    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size_sequence, mat[SIZEA-1][SIZEB-1]);
     printf("===========================\n");
     return ret;
 }
@@ -663,7 +676,8 @@ int main(int argc, char *argv[7])
     printf("<Initialize Matrix>\n");
     mat = InitializeMatrix(SIZEA, SIZEB);
     printf("<Calculate Matrix>\n");
-    CalculateSimilarity(mat, vetA, vetB);
+    elapsed_time = CalculateSimilarity(mat, vetA, vetB);
+    printf("Alignment time: %f seconds\n", elapsed_time);
     if(VERBOSE)
         PrintMatrix(mat);
     
