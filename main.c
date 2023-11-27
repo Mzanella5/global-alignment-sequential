@@ -72,13 +72,6 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos, int *
     if(j-1 >= 0)
         v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
 
-    // if(SEILA == 1)
-    // {
-    //     printf("i:%d j:%d %c-%c\n",i,j,a,b);
-    //     printf("D:%d V:%d H:%d\n", v1,v2,v3);
-    //     char c;
-    //     scanf("%c", &c);
-    // }
     if(v2 > result)
     {
         result = v2;
@@ -95,20 +88,8 @@ int FunctionSimilarity(int** mat, char a, char b, int i, int j, char *pos, int *
         *pos = 'D';
     }
 
-    if(result == INT_MIN)
+    if(result == INT_MIN && i > 0 || j > 0)
         printf("\nmat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
-
-    // if(mat[i][j] == v2)
-    //     *pos = 'V';
-    // else if(mat[i][j] == v1)
-    //     *pos = 'D';
-    // else if(mat[i][j] == v3)
-    //     *pos = 'H';
-    // else if(SEILA == 1)
-    //     printf("mat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
-
-    // if(SEILA == 1)
-    //     printf("%c\n", *pos);
 
     return result;
 }

@@ -1,3 +1,5 @@
 GlobalSequencial
 /seq
 main
+/out
+gmon.out
